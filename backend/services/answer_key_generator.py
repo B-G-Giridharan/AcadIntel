@@ -1,0 +1,265 @@
+"""
+Answer Key Generator Service
+Generates comprehensive answer keys with source references
+"""
+
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, Table, TableStyle
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_JUSTIFY
+from datetime import datetime
+import os
+import time
+
+def identify_repeated_questions(questions):
+    """Identify repeated or similar questions based on frequency"""
+    repeated = []
+    for q in questions:
+        if q.get('frequency', 0) >= 3:  # Appeared 3+ times
+            repeated.append(q['id'])
+    return repeated
+
+def identify_high_weightage(questions):
+    """Identify high-weightage questions"""
+    high_weightage = []
+    for q in questions:
+        if q.get('weightage', 0) >= 10:
+            high_weightage.append(q['id'])
+    return high_weightage
+
+def find_answer_in_textbook(question, textbook):
+    """Find answer from textbook content"""
+    question_topics = set(topic.lower() for topic in question.get('topics', []))
+    
+    for chapter in textbook.get('chapters', []):
+        for section in chapter.get('sections', []):
+            section_title_lower = section['title'].lower()
+            
+            # Check if question topics match section
+            if any(topic in section_title_lower for topic in question_topics):
+                return {
+                    'found': True,
+                    'answer': section['content'],
+                    'source': {
+                        'book': textbook['title'],
+                        'author': textbook['author'],
+                        'chapter': chapter['number'],
+                        'section': section['title'],
+                        'page': section.get('page', 'N/A')
+                    },
+                    'key_terms': section.get('key_terms', [])
+                }
+    
+    # If not found, provide external resource links
+    return {
+        'found': False,
+        'answer': None,
+        'external_resources': [
+            f"https://scholar.google.com/scholar?q={'+'.join(question['text'].split()[:5])}",
+            f"https://www.khanacademy.org/search?q={'+'.join(question_topics)}"
+        ]
+    }
+
+def generate_answer_key(subject_name, questions, textbook, settings):
+    """Generate comprehensive answer key PDF"""
+    start_time = time.time()
+    
+    # Create output directory
+    os.makedirs("output", exist_ok=True)
+    
+    # Generate filename
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"AcadIntel_AnswerKey_{subject_name.replace(' ', '_')}_{timestamp}.pdf"
+    filepath = os.path.join("output", filename)
+    
+    # Identify special questions
+    repeated = identify_repeated_questions(questions)
+    high_weightage = identify_high_weightage(questions)
+    
+    # Create PDF
+    doc = SimpleDocTemplate(filepath, pagesize=A4,
+                           rightMargin=0.75*inch, leftMargin=0.75*inch,
+                           topMargin=0.75*inch, bottomMargin=0.75*inch)
+    
+    # Styles
+    styles = getSampleStyleSheet()
+    
+    # Custom styles
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=24,
+        textColor=colors.HexColor('#195de6'),
+        spaceAfter=12,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Bold'
+    )
+    
+    subtitle_style = ParagraphStyle(
+        'CustomSubtitle',
+        parent=styles['Normal'],
+        fontSize=12,
+        textColor=colors.grey,
+        spaceAfter=20,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Oblique'
+    )
+    
+    question_style = ParagraphStyle(
+        'Question',
+        parent=styles['Heading2'],
+        fontSize=14,
+        textColor=colors.HexColor('#111318'),
+        spaceAfter=8,
+        spaceBefore=12,
+        fontName='Helvetica-Bold'
+    )
+    
+    answer_style = ParagraphStyle(
+        'Answer',
+        parent=styles['Normal'],
+        fontSize=11,
+        textColor=colors.black,
+        spaceAfter=10,
+        alignment=TA_JUSTIFY,
+        leading=14
+    )
+    
+    source_style = ParagraphStyle(
+        'Source',
+        parent=styles['Normal'],
+        fontSize=9,
+        textColor=colors.HexColor('#636f88'),
+        spaceAfter=8,
+        fontName='Helvetica-Oblique'
+    )
+    
+    badge_style = ParagraphStyle(
+        'Badge',
+        parent=styles['Normal'],
+        fontSize=8,
+        textColor=colors.white,
+        spaceAfter=4
+    )
+    
+    # Build document content
+    content = []
+    
+    # Header
+    content.append(Paragraph(f"{subject_name}", title_style))
+    content.append(Paragraph("Comprehensive Answer Key with Source References", subtitle_style))
+    content.append(Paragraph(f"Generated by AcadIntel - {datetime.now().strftime('%B %d, %Y')}", source_style))
+    content.append(Spacer(1, 0.3*inch))
+    
+    # Statistics table
+    stats_data = [
+        ['Total Questions', str(len(questions))],
+        ['Repeated Questions', str(len(repeated))],
+        ['High Weightage (>=10 marks)', str(len(high_weightage))],
+        ['Source Book', textbook['title']]
+    ]
+    
+    stats_table = Table(stats_data, colWidths=[2.5*inch, 3*inch])
+    stats_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f0f2f4')),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('PADDING', (0, 0), (-1, -1), 8),
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.grey)
+    ]))
+    
+    content.append(stats_table)
+    content.append(Spacer(1, 0.4*inch))
+    content.append(PageBreak())
+    
+    # Process each question
+    sources_used = set()
+    
+    for idx, question in enumerate(questions, 1):
+        # Question number and badges
+        badges = []
+        if question['id'] in repeated:
+            badges.append("[REPEATED]")
+        if question['id'] in high_weightage:
+            badges.append("[HIGH WEIGHTAGE]")
+        if question.get('frequency', 0) >= 4:
+            badges.append(f"[Asked {question['frequency']} times]")
+        
+        question_header = f"Q{idx}. {question['text']}"
+        if badges:
+            question_header += f" <font color='#195de6'>{' | '.join(badges)}</font>"
+        
+        content.append(Paragraph(question_header, question_style))
+        
+        # Metadata
+        metadata = f"<i>Year: {question.get('year', 'N/A')} | Exam: {question.get('exam', 'N/A')} | Weightage: {question.get('weightage', 0)} marks</i>"
+        content.append(Paragraph(metadata, source_style))
+        content.append(Spacer(1, 0.1*inch))
+        
+        # Find answer
+        result = find_answer_in_textbook(question, textbook)
+        
+        if result['found']:
+            # Answer from textbook
+            answer_text = result['answer']
+            
+            # Highlight key terms if enabled
+            if settings.get('smart_highlights', True) and result.get('key_terms'):
+                for term in result['key_terms']:
+                    answer_text = answer_text.replace(
+                        term,
+                        f"<b>{term}</b>"
+                    )
+            
+            content.append(Paragraph(f"<b>Answer:</b>", answer_style))
+            content.append(Paragraph(answer_text.replace('\n', '<br/>'), answer_style))
+            
+            # Source citation
+            if settings.get('include_citations', True):
+                source = result['source']
+                citation = (f"<b>Source:</b> {source['book']} by {source['author']}, "
+                          f"Chapter {source['chapter']}: {source['section']}, "
+                          f"Page {source['page']}")
+                content.append(Paragraph(citation, source_style))
+                sources_used.add(source['book'])
+        else:
+            # External resources
+            content.append(Paragraph(
+                "<b>Answer not found in local textbook.</b> Please refer to these trusted sources:",
+                answer_style
+            ))
+            for link in result['external_resources']:
+                content.append(Paragraph(f"- <link href='{link}'>{link}</link>", source_style))
+        
+        content.append(Spacer(1, 0.2*inch))
+        
+        # Page break after every 2 questions for readability
+        if idx % 2 == 0 and idx < len(questions):
+            content.append(PageBreak())
+    
+    # Footer
+    content.append(PageBreak())
+    content.append(Spacer(1, 0.5*inch))
+    content.append(Paragraph("End of Answer Key", subtitle_style))
+    footer_text = f"Generated by AcadIntel AI - Source-Verified Answers - {datetime.now().strftime('%B %d, %Y at %I:%M %p')}"
+    content.append(Paragraph(footer_text, source_style))
+    
+    # Build PDF
+    doc.build(content)
+    
+    generation_time = round(time.time() - start_time, 2)
+    
+    return {
+        "file_path": filepath,
+        "filename": filename,
+        "total_questions": len(questions),
+        "repeated_questions": len(repeated),
+        "high_weightage": len(high_weightage),
+        "sources_used": list(sources_used),
+        "generation_time": generation_time
+    }

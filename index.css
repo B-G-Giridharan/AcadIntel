@@ -1,0 +1,127 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  width: 100%;
+  height: 100vh;
+}
+
+/* A4 Page Styles for PDF Preview */
+.a4-page {
+  width: 210mm;
+  min-height: 297mm;
+  box-sizing: border-box;
+}
+
+@media print {
+  .a4-page {
+    width: 210mm;
+    height: 297mm;
+    page-break-after: always;
+  }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Dark mode scrollbar */
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Light theme overrides for dark-first UI */
+.light .bg-background-dark {
+  background-color: #f6f6f8;
+}
+
+.light .bg-surface-dark {
+  background-color: #ffffff;
+}
+
+.light .bg-charcoal-dark {
+  background-color: #eef1f6;
+}
+
+.light .text-white {
+  color: #111318;
+}
+
+.light .text-text-secondary {
+  color: #5f6b7a;
+}
+
+.light .text-gray-400 {
+  color: #6b7280;
+}
+
+.light .text-gray-300 {
+  color: #6b7280;
+}
+
+.light .border-white\/5 {
+  border-color: #e5e7eb;
+}
+
+.light .border-white\/10 {
+  border-color: #e5e7eb;
+}
+
+.light .border-\[\#292e38\] {
+  border-color: #e5e7eb;
+}
+
+.light .bg-\[\#292e38\] {
+  background-color: #eef1f6;
+}
+
+.light .bg-\[\#1a1f2b\] {
+  background-color: #ffffff;
+}
+
+.light .bg-\[\#363c4a\] {
+  background-color: #e5e7eb;
+}
+
+.light .bg-white\/5 {
+  background-color: rgba(0, 0, 0, 0.04);
+}
+
+.light .bg-white\/10 {
+  background-color: rgba(0, 0, 0, 0.06);
+}
